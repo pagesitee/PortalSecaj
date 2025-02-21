@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal do Usuário - SECAJ</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="icone.png">
+    <!-- Inclua a biblioteca Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Ícone de menu (Font Awesome) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Manifest do PWA -->
+    <link rel="manifest" href="./manifest.json">
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Importações do Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyD1wD2KTGnM0vWqs8eGiFLQdOaQh77a5uw",
+            authDomain: "portal-secaj.firebaseapp.com",
+            projectId: "portal-secaj",
+            storageBucket: "portal-secaj.appspot.com",
+            messagingSenderId: "580471459735",
+            appId: "1:580471459735:web:3092f388f6d4b3b48afed2",
+            measurementId: "G-CYSXWJZHTZ"
+        };
+
+        // Inicialização do Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Função para buscar e exibir pedidos de prioridades
+        async function renderPriorities() {
+            const prioritiesList = document.getElementById('priorities-list');
+            prioritiesList.innerHTML = '';
+
+            const querySnapshot = await getDocs(collection(db, "priorities"));
+            querySnapshot.forEach((doc) => {
+                const priority = doc.data();
+                const priorityCard = document.createElement('div');
+                priorityCard.className = 'priority-card';
+                if (priority.active) {
+                    priorityCard.classList.add('priority-legal');
+                }
+                priorityCard.innerHTML = `
+                    <div class="priority-card-content">
+                        <p><strong>Nº Processo:</strong> ${priority.processNumber}</p>
+                        <p><strong>Data do Pedido:</strong> ${priority.requestDate}</p>
+                        <p><strong>Data de Recebimento:</strong> ${priority.receiptDate}</p>
+                        <p><strong>Responsável:</strong> ${priority.responsible}</p>
+                        <p><strong>Informação Adicional:</strong> ${priority.additionalInfo}</p>
+                        ${priority.active ? '<div class="priority-stamp">Processo com prioridade legal</div>' : ''}
+                    </div>
+                `;
+                prioritiesList.appendChild(priorityCard);
+            });
+        }
+
+        // Função para buscar e exibir os meses cadastrados
+        async function renderMonths() {
+            const monthsCharts = document.getElementById('months-charts');
+            monthsCharts.innerHTML = '';
+
+            const querySnapshot = await getDocs(collection(db, "months"));
+            const monthsData = [];
+            querySnapshot.forEach((doc) => {
+                const month = doc.data();
+                monthsData.push(month);
+            });
+
+            // Renderizar gráfico inicial com todos os meses
+            const initialChartRow = document.createElement('div');
+            initialChartRow.className = 'chart-row';
+            initialChartRow.innerHTML = `
+                <div class="chart-title">Todos os Meses</div>
+                <div class="chart-container bar">
+                    <canvas id="initial-bar-chart"></canvas>
+                </div>
+                <hr class="separator">
+            `;
+            monthsCharts.appendChild(initialChartRow);
+            renderInitialBarChart('initial-bar-chart', monthsData);
+
+            // Renderizar gráficos detalhados para cada mês
+            querySnapshot.forEach((doc, index) => {
+                const month = doc.data();
+                const chartRow = document.createElement('div');
+                chartRow.className = 'chart-row';
+                chartRow.innerHTML = `
+                    <div class="chart-title">${month.name}</div>
+                    <div class="chart-container bar">
+                        <canvas id="bar-chart-${doc.id}"></canvas>
+                    </div>
+                    <div class="chart-container pie">
+                        <canvas id="pie-chart-${doc.id}"></canvas>
+                    </div>
+                    <div class="table-container">
+                        <table class="styled-table">
+                            <thead>
+                                <tr>
+                                    <th>Categoria</th>
+                                    <th>Quantidade</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Processos Totais</td>
+                                    <td>${month.processes}</td>
+                                </tr>
+                                <tr>
+                                    <td>Maiores de 80</td>
+                                    <td>${month.over80}</td>
+                                </tr>
+                                <tr>
+                                    <td>Prioridade Legal</td>
+                                    <td>${month.legalPriority}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <hr class="separator">
+                `;
+                monthsCharts.appendChild(chartRow);
+
+                // Renderizar gráficos
+                renderHorizontalBarChart(`bar-chart-${doc.id}`, [month], [month.name]);
+                renderPieChart(`pie-chart-${doc.id}`, month);
+            });
+        }
+
+        // Função para buscar e exibir os objetos cadastrados
+        async function renderObjects() {
+            const objectsCharts = document.getElementById('objects-charts');
+            objectsCharts.innerHTML = '';
+
+            const querySnapshot = await getDocs(collection(db, "objects"));
+            const objectsData = [];
+            querySnapshot.forEach((doc) => {
+                const object = doc.data();
+                objectsData.push(object);
+            });
+
+            // Renderizar gráfico inicial com todos os objetos
+            const initialChartRow = document.createElement('div');
+            initialChartRow.className = 'chart-row';
+            initialChartRow.innerHTML = `
+                <div class="chart-title">Todos os Objetos</div>
+                <div class="chart-container bar">
+                    <canvas id="initial-bar-chart-obj"></canvas>
+                </div>
+                <hr class="separator">
+            `;
+            objectsCharts.appendChild(initialChartRow);
+            renderInitialBarChart('initial-bar-chart-obj', objectsData);
+
+            // Renderizar gráficos detalhados para cada objeto
+            querySnapshot.forEach((doc, index) => {
+                const object = doc.data();
+                const chartRow = document.createElement('div');
+                chartRow.className = 'chart-row';
+                chartRow.innerHTML = `
+                    <div class="chart-title">${object.name}</div>
+                    <div class="chart-container bar">
+                        <canvas id="bar-chart-obj-${doc.id}"></canvas>
+                    </div>
+                    <div class="chart-container pie">
+                        <canvas id="pie-chart-obj-${doc.id}"></canvas>
+                    </div>
+                    <div class="table-container">
+                        <table class="styled-table">
+                            <thead>
+                                <tr>
+                                    <th>Categoria</th>
+                                    <th>Quantidade</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Processos Totais</td>
+                                    <td>${object.processes}</td>
+                                </tr>
+                                <tr>
+                                    <td>Maiores de 80</td>
+                                    <td>${object.over80}</td>
+                                </tr>
+                                <tr>
+                                    <td>Prioridade Legal</td>
+                                    <td>${object.legalPriority}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <hr class="separator">
+                `;
+                objectsCharts.appendChild(chartRow);
+
+                // Renderizar gráficos
+                renderHorizontalBarChart(`bar-chart-obj-${doc.id}`, [object], [object.name]);
+                renderPieChart(`pie-chart-obj-${doc.id}`, object);
+            });
+        }
+
+        // Função para renderizar gráfico inicial de barras
+        function renderInitialBarChart(canvasId, data) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(item => item.name),
+                    datasets: [{
+                        label: 'Processos Totais',
+                        data: data.map(item => item.processes),
+                        backgroundColor: '#36a2eb',
+                        borderColor: '#36a2eb',
+                        borderWidth: 1
+                    }, {
+                        label: 'Maiores de 80',
+                        data: data.map(item => item.over80),
+                        backgroundColor: '#ff6384',
+                        borderColor: '#ff6384',
+                        borderWidth: 1
+                    }, {
+                        label: 'Prioridade Legal',
+                        data: data.map(item => item.legalPriority - item.over80), // Cálculo corrigido
+                        backgroundColor: '#4bc0c0',
+                        borderColor: '#4bc0c0',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#ddd',
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: '#ddd',
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                        }
+                    }
+                }
+            });
+        }
+
+        // Função para renderizar gráficos de barras horizontais
+        function renderHorizontalBarChart(canvasId, data, labels) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Processos Totais',
+                        data: data.map(item => item.processes),
+                        backgroundColor: '#36a2eb',
+                        borderColor: '#36a2eb',
+                        borderWidth: 1
+                    }, {
+                        label: 'Maiores de 80',
+                        data: data.map(item => item.over80),
+                        backgroundColor: '#ff6384',
+                        borderColor: '#ff6384',
+                        borderWidth: 1
+                    }, {
+                        label: 'Prioridade Legal',
+                        data: data.map(item => item.legalPriority - item.over80), // Cálculo corrigido
+                        backgroundColor: '#4bc0c0',
+                        borderColor: '#4bc0c0',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#ddd',
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: '#ddd',
+                            }
+                        }
+                    },
+                    plugins: {
+                        datalabels: {
+                            display: true,
+                            color: '#333',
+                            anchor: 'end',
+                            align: 'end',
+                            offset: 10
+                        }
+                    }
+                }
+            });
+        }
+
+        // Função para renderizar gráficos de pizza
+        function renderPieChart(canvasId, data) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['Processos Totais', 'Maiores de 80', 'Prioridade Legal'],
+                    datasets: [{
+                        data: [data.processes, data.over80, data.legalPriority - data.over80], // Cálculo corrigido
+                        backgroundColor: ['#36a2eb', '#ff6384', '#4bc0c0'],
+                        borderColor: ['#36a2eb', '#ff6384', '#4bc0c0'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                        },
+                        tooltip: {
+                            enabled: true,
+                        }
+                    }
+                }
+            });
+        }
+
+        // Função para alternar o menu e empurrar a página
+        function toggleMenu() {
+            const menuSidebar = document.getElementById('menuSidebar');
+            const mainContent = document.querySelector('.main-content');
+            menuSidebar.classList.toggle('active');
+            mainContent.classList.toggle('pushed');
+        }
+
+        // Função para alternar entre abas
+        function showTab(tabName) {
+            // Esconder todas as abas
+            document.querySelectorAll('.content').forEach(content => {
+                content.style.display = 'none';
+            });
+
+            // Mostrar a aba selecionada
+            document.getElementById(tabName).style.display = 'block';
+
+            // Esconder a mensagem de boas-vindas ao clicar em qualquer aba
+            document.querySelector('.welcome-message').style.display = 'none';
+
+            // Fechar o menu após selecionar uma aba
+            toggleMenu();
+
+            // Renderizar os dados da aba selecionada
+            if (tabName === 'priorities') {
+                renderPriorities();
+            } else if (tabName === 'objects') {
+                renderObjects();
+            } else if (tabName === 'months') {
+                renderMonths();
+            }
+
+            // Alterar a imagem de fundo ao selecionar uma aba
+            setRandomBackground();
+        }
+
+        // Função para sair
+        function logout() {
+            localStorage.removeItem('loggedInUser');
+            window.location.href = 'index.html';
+        }
+
+        // Função para escolher uma imagem de fundo aleatória
+        function setRandomBackground() {
+            const images = [
+                './imagens/imagem1.jpg',
+                './imagens/imagem2.jpg',
+                './imagens/imagem3.jpg',
+                './imagens/imagem4.jpg',
+                './imagens/imagem5.jpg',
+                './imagens/imagem6.jpg',
+                './imagens/imagem7.jpg'
+            ];
+            const randomImage = images[Math.floor(Math.random() * images.length)];
+            document.body.style.backgroundImage = `url('${randomImage}')`;
+        }
+
+        // Função para adicionar um separador
+        function addSeparator() {
+            const sepId = document.querySelectorAll(".separator-container").length + 1;
+            const container = document.getElementById("separator-container");
+
+            const separatorContainer = document.createElement("div");
+            separatorContainer.className = "separator-container";
+            separatorContainer.id = `separator-container-${sepId}`;
+            separatorContainer.innerHTML = `
+                <div class="separator">
+                    <div class="info-container">
+                        <label>Nome da Parte:</label>
+                        <input type="text" id="nome-parte-${sepId}">
+                        <label>Data da transferência:</label>
+                        <input type="date" id="date-${sepId}">
+                    </div>
+                    <div class="box">
+                        <strong>Insira o total</strong>
+                        <label>Principal:</label>
+                        <input type="text" id="calc-principal-${sepId}" readonly>
+                        <label>Juros:</label>
+                        <input type="text" id="calc-juros-${sepId}" readonly>
+                        <label>Total:</label>
+                        <input type="text" id="total-${sepId}" oninput="calculate(${sepId})">
+                    </div>
+                    <div class="box">
+                        <strong>Insira o principal e juros</strong>
+                        <label>Principal:</label>
+                        <input type="text" id="principal-${sepId}" oninput="calculate(${sepId})">
+                        <label>Juros:</label>
+                        <input type="text" id="juros-${sepId}" oninput="calculate(${sepId})">
+                        <label>Total:</label>
+                        <input type="text" id="calc-total-${sepId}" readonly>
+                    </div>
+                </div>
+                <button onclick="removeSeparator(${sepId})">Excluir</button>
+            `;
+
+            container.appendChild(separatorContainer);
+        }
+
+        // Função para remover um separador
+        function removeSeparator(sepId) {
+            document.getElementById(`separator-container-${sepId}`).remove();
+        }
+
+        // Função para calcular os valores do separador
+        function calculate(sepId) {
+    // Obter os valores dos campos
+    const total = parseFloat(document.getElementById(`total-${sepId}`).value.replace(".", "").replace(",", ".")) || 0;
+    const principal = parseFloat(document.getElementById(`principal-${sepId}`).value.replace(".", "").replace(",", ".")) || 0;
+    const juros = parseFloat(document.getElementById(`juros-${sepId}`).value.replace(".", "").replace(",", ".")) || 0;
+
+    // Calcular o total originário (soma do principal e juros)
+    const totalOriginario = principal + juros;
+
+    if (totalOriginario > 0) {
+        // Calcular o principal e juros proporcionais
+        const calcPrincipal = (principal / totalOriginario) * total;
+        const calcJuros = (juros / totalOriginario) * total;
+
+        // Exibir os valores calculados no primeiro quadrado
+        document.getElementById(`calc-principal-${sepId}`).value = calcPrincipal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById(`calc-juros-${sepId}`).value = calcJuros.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById(`calc-total-${sepId}`).value = totalOriginario.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } else {
+        // Limpar os campos se o total originário for zero
+        document.getElementById(`calc-principal-${sepId}`).value = "";
+        document.getElementById(`calc-juros-${sepId}`).value = "";
+        document.getElementById(`calc-total-${sepId}`).value = "";
+    }
+}
+
+        // Renderizar dados ao carregar a página
+        window.onload = () => {
+            const loggedInUser = localStorage.getItem('loggedInUser');
+            if (loggedInUser) {
+                // Exibir o nome do usuário no menu
+                const loggedInUserNameElement = document.getElementById('loggedInUserName');
+                if (loggedInUserNameElement) {
+                    loggedInUserNameElement.textContent = loggedInUser;
+                }
+            }
+
+            // Definir a imagem de fundo ao carregar a página
+            setRandomBackground();
+
+            // Esconder o conteúdo da primeira aba ao iniciar
+            document.getElementById('months').style.display = 'none';
+        };
+
+        // Tornar as funções globais para que possam ser chamadas no HTML
+        window.showTab = showTab;
+        window.logout = logout;
+        window.toggleMenu = toggleMenu;
+        window.addSeparator = addSeparator;
+        window.calculate = calculate;
+        window.removeSeparator = removeSeparator;
+    </script>
+    <style>
+        /* Estilos Gerais */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            overflow: hidden;
+        }
+
+        /* Mensagem de boas-vindas */
+        .welcome-message {
+            background: rgba(128, 128, 128, 0.8); /* Caixa cinza transparente */
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            width: 80%;
+            max-width: 600px;
+            color: #fff;
+            font-size: 18px;
+            font-weight: 600;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* Toggle Simple Menu */
+        .menu-toggle {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: linear-gradient(to right, #2a5298, #1e3c72);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .menu-toggle i {
+            font-size: 20px;
+        }
+
+        .menu-sidebar {
+            position: fixed;
+            top: 0;
+            left: -250px; /* Escondido inicialmente */
+            width: 250px;
+            height: 100vh;
+            background: rgba(42, 82, 152, 0.9); /* Azul escuro com transparência */
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            transition: left 0.3s ease;
+            z-index: 999;
+        }
+
+        .menu-sidebar.active {
+            left: 0; /* Mostrar o menu */
+        }
+
+        .menu-sidebar ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            margin-top: 60px; /* Espaço para o botão de toggle */
+        }
+
+        .menu-sidebar ul li {
+            padding: 15px;
+            color: #fff; /* Letras brancas */
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: background 0.3s ease;
+            font-weight: bold; /* Negrito */
+        }
+
+        .menu-sidebar ul li:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .menu-sidebar ul li:last-child {
+            border-bottom: none;
+        }
+
+        /* Texto no final do menu */
+        .menu-footer {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            text-align: center;
+            font-size: 10px;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        /* Conteúdo Principal */
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            margin-left: 0;
+            transition: margin-left 0.3s;
+            margin-top: 80px; /* Aumentado para evitar sobreposição com o botão do menu */
+            overflow-y: auto;
+            max-height: 85vh; /* Altura maior */
+            background: rgba(128, 128, 128, 0.8); /* Caixa cinza transparente */
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .main-content.pushed {
+            margin-left: 250px; /* Empurrar o conteúdo quando o menu está aberto */
+        }
+
+        .content {
+            display: none;
+            background: rgba(255, 255, 255, 0.9); /* Fundo branco mais opaco */
+            border-radius: 8px;
+            padding: 30px; /* Mais espaço interno */
+            margin: 30px; /* Mais espaço externo */
+            max-height: 75vh; /* Altura maior */
+            width: 90%; /* Largura maior */
+            overflow-y: auto; /* Habilita a rolagem vertical */
+        }
+
+        .content.active {
+            display: block;
+        }
+
+        /* Estilos para as abas de conteúdo */
+        #unify-documents-content {
+            padding: 20px;
+        }
+
+        #fileList {
+            margin-bottom: 20px;
+        }
+
+        #fileList li {
+            display: inline-block;
+            margin: 5px;
+            padding: 8px;
+            background-color: #f1f1f1;
+            border-radius: 5px;
+        }
+
+        /* Barra de Carregamento */
+        #loading-bar {
+            width: 100%;
+            background-color: #f1f1f1;
+            border-radius: 4px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .loading-bar-inner {
+            width: 0;
+            height: 10px;
+            background-color: #28a745;
+            border-radius: 4px;
+            transition: width 2s;
+        }
+
+        /* Estilos para os cartões de prioridades */
+        .priority-card {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .priority-card.priority-legal {
+            background-color: #ffcccc;
+        }
+
+        .priority-stamp {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 20px;
+            font-weight: bold;
+            color: #ff0000;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        /* Estilos para as tabelas */
+        .styled-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+
+        .styled-table th, .styled-table td {
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        .styled-table th {
+            background-color: #f4f4f9;
+            font-weight: 600;
+        }
+
+        .styled-table tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .styled-table tbody tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        /* Estilos para o Separador de Principal e Juros */
+        .separator-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+            width: 650px;
+            margin-bottom: 20px;
+        }
+
+        .info-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 5px;
+            width: 280px;
+        }
+
+        .separator {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .box {
+            border: 2px solid #333;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 280px;
+            border-radius: 5px;
+            background: #fff;
+        }
+
+        input {
+            width: 100%;
+            text-align: right;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .button-container {
+            margin-top: 15px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            background: #007BFF;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <!-- Toggle Simple Menu -->
+    <button class="menu-toggle" onclick="toggleMenu()">
+        <i class="fas fa-bars"></i>
+        <span>Menu</span>
+    </button>
+
+    <!-- Menu Sidebar -->
+    <div class="menu-sidebar" id="menuSidebar">
+        <ul>
+            <li onclick="showTab('months')">Meses e Processos</li>
+            <li onclick="showTab('objects')">Objetos e Processos</li>
+            <li onclick="showTab('priorities')">Pedidos de Prioridades</li>
+            <li onclick="showTab('separator')">Separador de Principal e Juros</li>
+            <li onclick="logout()" style="color: #ff0000;">Sair</li>
+        </ul>
+        <!-- Texto no final do menu -->
+        <div class="menu-footer">
+            Pensado e desenvolvido por Fellipe Barbosa dos Santos.
+        </div>
+    </div>
+
+    <!-- Mensagem de boas-vindas -->
+    <div class="welcome-message">
+        Bem vindo ao Portal SECAJ. Clique em MENU e selecione a aba desejada.
+    </div>
+
+    <!-- Conteúdo Principal -->
+    <div class="main-content">
+        <!-- Aba de Meses e Processos -->
+        <div class="content" id="months">
+            <h2>Quantitativo de Processos por Mês</h2>
+            <div id="months-charts"></div>
+        </div>
+
+        <!-- Aba de Objetos e Processos -->
+        <div class="content" id="objects">
+            <h2>Quantitativo de Processos por Objeto</h2>
+            <div id="objects-charts"></div>
+        </div>
+
+        <!-- Aba de Pedidos de Prioridades -->
+        <div class="content" id="priorities">
+            <h2>Pedidos de Prioridades</h2>
+            <div id="priorities-list"></div>
+        </div>
+
+        <!-- Aba de Separador de Principal e Juros -->
+        <div class="content" id="separator">
+            <h2>Separador de Principal e Juros</h2>
+            <div id="separator-container"></div>
+            <button onclick="addSeparator()">Adicionar Separador</button>
+        </div>
+    </div>
+</body>
+</html>
