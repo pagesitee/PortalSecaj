@@ -12,6 +12,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <!-- Manifest do PWA -->
     <link rel="manifest" href="./manifest.json">
+    <!-- Inclua a biblioteca PDFLib para manipulação de PDFs -->
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <!-- Firebase SDK -->
     <script type="module">
         // Importações do Firebase
@@ -33,33 +35,6 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Função para buscar e exibir pedidos de prioridades
-        async function renderPriorities() {
-            const prioritiesList = document.getElementById('priorities-list');
-            prioritiesList.innerHTML = '';
-
-            const querySnapshot = await getDocs(collection(db, "priorities"));
-            querySnapshot.forEach((doc) => {
-                const priority = doc.data();
-                const priorityCard = document.createElement('div');
-                priorityCard.className = 'priority-card';
-                if (priority.active) {
-                    priorityCard.classList.add('priority-legal');
-                }
-                priorityCard.innerHTML = `
-                    <div class="priority-card-content">
-                        <p><strong>Nº Processo:</strong> ${priority.processNumber}</p>
-                        <p><strong>Data do Pedido:</strong> ${priority.requestDate}</p>
-                        <p><strong>Data de Recebimento:</strong> ${priority.receiptDate}</p>
-                        <p><strong>Responsável:</strong> ${priority.responsible}</p>
-                        <p><strong>Informação Adicional:</strong> ${priority.additionalInfo}</p>
-                        ${priority.active ? '<div class="priority-stamp">Processo com prioridade legal</div>' : ''}
-                    </div>
-                `;
-                prioritiesList.appendChild(priorityCard);
-            });
-        }
-
         // Função para buscar e exibir os meses cadastrados
         async function renderMonths() {
             const monthsCharts = document.getElementById('months-charts');
@@ -72,30 +47,17 @@
                 monthsData.push(month);
             });
 
-            // Renderizar gráfico inicial com todos os meses
-            const initialChartRow = document.createElement('div');
-            initialChartRow.className = 'chart-row';
-            initialChartRow.innerHTML = `
-                <div class="chart-title">Todos os Meses</div>
-                <div class="chart-container bar">
-                    <canvas id="initial-bar-chart"></canvas>
-                </div>
-                <hr class="separator">
-            `;
-            monthsCharts.appendChild(initialChartRow);
-            renderInitialBarChart('initial-bar-chart', monthsData);
-
             // Renderizar gráficos detalhados para cada mês
             querySnapshot.forEach((doc, index) => {
                 const month = doc.data();
                 const chartRow = document.createElement('div');
-                chartRow.className = 'chart-row';
+                chartRow.className = 'chart-card';
                 chartRow.innerHTML = `
                     <div class="chart-title">${month.name}</div>
-                    <div class="chart-container bar">
+                    <div class="chart-container">
                         <canvas id="bar-chart-${doc.id}"></canvas>
                     </div>
-                    <div class="chart-container pie">
+                    <div class="chart-container">
                         <canvas id="pie-chart-${doc.id}"></canvas>
                     </div>
                     <div class="table-container">
@@ -122,7 +84,6 @@
                             </tbody>
                         </table>
                     </div>
-                    <hr class="separator">
                 `;
                 monthsCharts.appendChild(chartRow);
 
@@ -144,30 +105,17 @@
                 objectsData.push(object);
             });
 
-            // Renderizar gráfico inicial com todos os objetos
-            const initialChartRow = document.createElement('div');
-            initialChartRow.className = 'chart-row';
-            initialChartRow.innerHTML = `
-                <div class="chart-title">Todos os Objetos</div>
-                <div class="chart-container bar">
-                    <canvas id="initial-bar-chart-obj"></canvas>
-                </div>
-                <hr class="separator">
-            `;
-            objectsCharts.appendChild(initialChartRow);
-            renderInitialBarChart('initial-bar-chart-obj', objectsData);
-
             // Renderizar gráficos detalhados para cada objeto
             querySnapshot.forEach((doc, index) => {
                 const object = doc.data();
                 const chartRow = document.createElement('div');
-                chartRow.className = 'chart-row';
+                chartRow.className = 'chart-card';
                 chartRow.innerHTML = `
                     <div class="chart-title">${object.name}</div>
-                    <div class="chart-container bar">
+                    <div class="chart-container">
                         <canvas id="bar-chart-obj-${doc.id}"></canvas>
                     </div>
-                    <div class="chart-container pie">
+                    <div class="chart-container">
                         <canvas id="pie-chart-obj-${doc.id}"></canvas>
                     </div>
                     <div class="table-container">
@@ -194,66 +142,12 @@
                             </tbody>
                         </table>
                     </div>
-                    <hr class="separator">
                 `;
                 objectsCharts.appendChild(chartRow);
 
                 // Renderizar gráficos
                 renderHorizontalBarChart(`bar-chart-obj-${doc.id}`, [object], [object.name]);
                 renderPieChart(`pie-chart-obj-${doc.id}`, object);
-            });
-        }
-
-        // Função para renderizar gráfico inicial de barras
-        function renderInitialBarChart(canvasId, data) {
-            const ctx = document.getElementById(canvasId).getContext('2d');
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: data.map(item => item.name),
-                    datasets: [{
-                        label: 'Processos Totais',
-                        data: data.map(item => item.processes),
-                        backgroundColor: '#36a2eb',
-                        borderColor: '#36a2eb',
-                        borderWidth: 1
-                    }, {
-                        label: 'Maiores de 80',
-                        data: data.map(item => item.over80),
-                        backgroundColor: '#ff6384',
-                        borderColor: '#ff6384',
-                        borderWidth: 1
-                    }, {
-                        label: 'Prioridade Legal',
-                        data: data.map(item => item.legalPriority - item.over80), // Cálculo corrigido
-                        backgroundColor: '#4bc0c0',
-                        borderColor: '#4bc0c0',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            grid: {
-                                color: '#ddd',
-                            }
-                        },
-                        y: {
-                            grid: {
-                                color: '#ddd',
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                        }
-                    }
-                }
             });
         }
 
@@ -368,16 +262,41 @@
             toggleMenu();
 
             // Renderizar os dados da aba selecionada
-            if (tabName === 'priorities') {
-                renderPriorities();
+            if (tabName === 'links') {
+                renderLinks();
             } else if (tabName === 'objects') {
                 renderObjects();
             } else if (tabName === 'months') {
                 renderMonths();
+            } else if (tabName === 'unify-documents') {
+                // Renderizar a aba de unificação de documentos
+            } else if (tabName === 'separator') {
+                // Renderizar a aba de separador de principal e juros
             }
 
             // Alterar a imagem de fundo ao selecionar uma aba
             setRandomBackground();
+        }
+
+        // Função para buscar e exibir os links úteis
+        async function renderLinks() {
+            const linksList = document.getElementById('links-list');
+            linksList.innerHTML = '';
+
+            const querySnapshot = await getDocs(collection(db, "documents"));
+            querySnapshot.forEach((doc) => {
+                const link = doc.data();
+                const linkItem = document.createElement('div');
+                linkItem.className = 'link-item';
+                linkItem.innerHTML = `
+                    <div class="link-content">
+                        <h3>${link.title}</h3>
+                        <p>${link.description}</p>
+                    </div>
+                    <button onclick="window.open('${link.url}', '_blank')">Acessar</button>
+                `;
+                linksList.appendChild(linkItem);
+            });
         }
 
         // Função para sair
@@ -401,79 +320,6 @@
             document.body.style.backgroundImage = `url('${randomImage}')`;
         }
 
-        // Função para adicionar um separador
-        function addSeparator() {
-            const sepId = document.querySelectorAll(".separator-container").length + 1;
-            const container = document.getElementById("separator-container");
-
-            const separatorContainer = document.createElement("div");
-            separatorContainer.className = "separator-container";
-            separatorContainer.id = `separator-container-${sepId}`;
-            separatorContainer.innerHTML = `
-                <div class="separator">
-                    <div class="info-container">
-                        <label>Nome da Parte:</label>
-                        <input type="text" id="nome-parte-${sepId}">
-                        <label>Data da transferência:</label>
-                        <input type="date" id="date-${sepId}">
-                    </div>
-                    <div class="box">
-                        <strong>Insira o total</strong>
-                        <label>Principal:</label>
-                        <input type="text" id="calc-principal-${sepId}" readonly>
-                        <label>Juros:</label>
-                        <input type="text" id="calc-juros-${sepId}" readonly>
-                        <label>Total:</label>
-                        <input type="text" id="total-${sepId}" oninput="calculate(${sepId})">
-                    </div>
-                    <div class="box">
-                        <strong>Insira o principal e juros</strong>
-                        <label>Principal:</label>
-                        <input type="text" id="principal-${sepId}" oninput="calculate(${sepId})">
-                        <label>Juros:</label>
-                        <input type="text" id="juros-${sepId}" oninput="calculate(${sepId})">
-                        <label>Total:</label>
-                        <input type="text" id="calc-total-${sepId}" readonly>
-                    </div>
-                </div>
-                <button onclick="removeSeparator(${sepId})">Excluir</button>
-            `;
-
-            container.appendChild(separatorContainer);
-        }
-
-        // Função para remover um separador
-        function removeSeparator(sepId) {
-            document.getElementById(`separator-container-${sepId}`).remove();
-        }
-
-        // Função para calcular os valores do separador
-        function calculate(sepId) {
-    // Obter os valores dos campos
-    const total = parseFloat(document.getElementById(`total-${sepId}`).value.replace(".", "").replace(",", ".")) || 0;
-    const principal = parseFloat(document.getElementById(`principal-${sepId}`).value.replace(".", "").replace(",", ".")) || 0;
-    const juros = parseFloat(document.getElementById(`juros-${sepId}`).value.replace(".", "").replace(",", ".")) || 0;
-
-    // Calcular o total originário (soma do principal e juros)
-    const totalOriginario = principal + juros;
-
-    if (totalOriginario > 0) {
-        // Calcular o principal e juros proporcionais
-        const calcPrincipal = (principal / totalOriginario) * total;
-        const calcJuros = (juros / totalOriginario) * total;
-
-        // Exibir os valores calculados no primeiro quadrado
-        document.getElementById(`calc-principal-${sepId}`).value = calcPrincipal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        document.getElementById(`calc-juros-${sepId}`).value = calcJuros.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        document.getElementById(`calc-total-${sepId}`).value = totalOriginario.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    } else {
-        // Limpar os campos se o total originário for zero
-        document.getElementById(`calc-principal-${sepId}`).value = "";
-        document.getElementById(`calc-juros-${sepId}`).value = "";
-        document.getElementById(`calc-total-${sepId}`).value = "";
-    }
-}
-
         // Renderizar dados ao carregar a página
         window.onload = () => {
             const loggedInUser = localStorage.getItem('loggedInUser');
@@ -490,15 +336,16 @@
 
             // Esconder o conteúdo da primeira aba ao iniciar
             document.getElementById('months').style.display = 'none';
+            document.getElementById('objects').style.display = 'none';
+            document.getElementById('links').style.display = 'none';
+            document.getElementById('unify-documents').style.display = 'none';
+            document.getElementById('separator').style.display = 'none';
         };
 
         // Tornar as funções globais para que possam ser chamadas no HTML
         window.showTab = showTab;
         window.logout = logout;
         window.toggleMenu = toggleMenu;
-        window.addSeparator = addSeparator;
-        window.calculate = calculate;
-        window.removeSeparator = removeSeparator;
     </script>
     <style>
         /* Estilos Gerais */
@@ -643,64 +490,35 @@
             display: block;
         }
 
-        /* Estilos para as abas de conteúdo */
-        #unify-documents-content {
-            padding: 20px;
-        }
-
-        #fileList {
-            margin-bottom: 20px;
-        }
-
-        #fileList li {
-            display: inline-block;
-            margin: 5px;
-            padding: 8px;
-            background-color: #f1f1f1;
-            border-radius: 5px;
-        }
-
-        /* Barra de Carregamento */
-        #loading-bar {
-            width: 100%;
-            background-color: #f1f1f1;
-            border-radius: 4px;
+        /* Estilos para os gráficos */
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
             margin-top: 20px;
-            display: none;
         }
 
-        .loading-bar-inner {
-            width: 0;
-            height: 10px;
-            background-color: #28a745;
-            border-radius: 4px;
-            transition: width 2s;
-        }
-
-        /* Estilos para os cartões de prioridades */
-        .priority-card {
-            background-color: #fff;
+        .chart-card {
+            background: white;
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             padding: 20px;
-            margin-bottom: 20px;
-            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
-        .priority-card.priority-legal {
-            background-color: #ffcccc;
-        }
-
-        .priority-stamp {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 20px;
+        .chart-title {
+            font-size: 18px;
             font-weight: bold;
-            color: #ff0000;
-            opacity: 0.5;
-            pointer-events: none;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 300px; /* Altura fixa para os gráficos */
+            position: relative;
         }
 
         /* Estilos para as tabelas */
@@ -730,26 +548,126 @@
             background-color: #f1f1f1;
         }
 
-        /* Estilos para o Separador de Principal e Juros */
-        .separator-container {
+        /* Estilos para a aba de Links Úteis */
+        #links {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px;
+            padding: 20px;
+        }
+
+        #links-list {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .link-item {
             background: white;
-            padding: 15px;
             border-radius: 8px;
-            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
-            width: 650px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .link-content {
+            flex: 1;
+        }
+
+        .link-item h3 {
+            margin: 0;
+            font-size: 18px;
+            color: #333;
+        }
+
+        .link-item p {
+            margin: 10px 0 0;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .link-item button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .link-item button:hover {
+            background-color: #218838;
+        }
+
+        /* Estilos para a aba de Unificar Documentos */
+        #unify-documents {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        #unify-documents input[type="file"] {
             margin-bottom: 20px;
         }
 
-        .info-container {
+        #unify-documents ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            width: 100%;
+        }
+
+        #unify-documents ul li {
+            background-color: #f1f1f1;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #unify-documents button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #unify-documents button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Estilos para a aba de Separador de Principal e Juros */
+        #separator {
             display: flex;
             flex-direction: column;
-            align-items: flex-start;
-            gap: 5px;
-            width: 280px;
+            align-items: center;
+            padding: 20px;
+        }
+
+        #separator-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            width: 100%;
+        }
+
+        .separator-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            width: 100%;
+            max-width: 600px;
         }
 
         .separator {
@@ -765,12 +683,21 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            width: 280px;
+            width: 100%;
+            max-width: 280px;
             border-radius: 5px;
             background: #fff;
         }
 
-        input {
+        .box strong {
+            margin-bottom: 10px;
+        }
+
+        .box label {
+            margin-bottom: 5px;
+        }
+
+        .box input {
             width: 100%;
             text-align: right;
             padding: 8px;
@@ -778,22 +705,18 @@
             border-radius: 4px;
         }
 
-        .button-container {
-            margin-top: 15px;
-        }
-
-        button {
+        #separator button {
+            margin-top: 20px;
             padding: 10px 20px;
-            border: none;
-            background: #007BFF;
+            background-color: #007BFF;
             color: white;
+            border: none;
             border-radius: 5px;
             cursor: pointer;
-            font-size: 14px;
         }
 
-        button:hover {
-            background: #0056b3;
+        #separator button:hover {
+            background-color: #0056b3;
         }
     </style>
 </head>
@@ -809,7 +732,8 @@
         <ul>
             <li onclick="showTab('months')">Meses e Processos</li>
             <li onclick="showTab('objects')">Objetos e Processos</li>
-            <li onclick="showTab('priorities')">Pedidos de Prioridades</li>
+            <li onclick="showTab('links')">Links Úteis</li>
+            <li onclick="showTab('unify-documents')">Unificar Documentos</li>
             <li onclick="showTab('separator')">Separador de Principal e Juros</li>
             <li onclick="logout()" style="color: #ff0000;">Sair</li>
         </ul>
@@ -829,19 +753,28 @@
         <!-- Aba de Meses e Processos -->
         <div class="content" id="months">
             <h2>Quantitativo de Processos por Mês</h2>
-            <div id="months-charts"></div>
+            <div class="chart-grid" id="months-charts"></div>
         </div>
 
         <!-- Aba de Objetos e Processos -->
         <div class="content" id="objects">
             <h2>Quantitativo de Processos por Objeto</h2>
-            <div id="objects-charts"></div>
+            <div class="chart-grid" id="objects-charts"></div>
         </div>
 
-        <!-- Aba de Pedidos de Prioridades -->
-        <div class="content" id="priorities">
-            <h2>Pedidos de Prioridades</h2>
-            <div id="priorities-list"></div>
+        <!-- Aba de Links Úteis -->
+        <div class="content" id="links">
+            <h2>Links Úteis</h2>
+            <div id="links-list"></div>
+        </div>
+
+        <!-- Aba de Unificar Documentos -->
+        <div class="content" id="unify-documents">
+            <h2>Unificar Documentos</h2>
+            <input type="file" id="fileInput" accept="application/pdf">
+            <h3>Arquivos Enviados:</h3>
+            <ul id="fileList"></ul>
+            <button onclick="mergePDFs()">Unificar PDFs</button>
         </div>
 
         <!-- Aba de Separador de Principal e Juros -->
@@ -851,5 +784,62 @@
             <button onclick="addSeparator()">Adicionar Separador</button>
         </div>
     </div>
+
+    <script>
+        // Função para unificar PDFs
+        let pdfFiles = [];
+
+        document.getElementById("fileInput").addEventListener("change", async function (event) {
+            let file = event.target.files[0];
+            if (!file) return;
+            
+            let arrayBuffer = await file.arrayBuffer();
+            pdfFiles.push(arrayBuffer);
+
+            let fileList = document.getElementById("fileList");
+            let listItem = document.createElement("li");
+            listItem.textContent = file.name;
+            fileList.appendChild(listItem);
+
+            event.target.value = ""; // Limpa o input para permitir adicionar o mesmo arquivo novamente
+        });
+
+        async function mergePDFs() {
+            if (pdfFiles.length === 0) {
+                alert("Nenhum arquivo para unificar.");
+                return;
+            }
+
+            const mergedPdf = await PDFLib.PDFDocument.create();
+
+            for (let pdfBytes of pdfFiles) {
+                const pdf = await PDFLib.PDFDocument.load(pdfBytes);
+                const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+                copiedPages.forEach((page) => mergedPdf.addPage(page));
+            }
+
+            const mergedPdfBytes = await mergedPdf.save();
+            const blob = new Blob([mergedPdfBytes], { type: "application/pdf" });
+            const url = URL.createObjectURL(blob);
+            
+            let a = document.createElement("a");
+            a.href = url;
+            a.download = "PDF_Unificado.pdf";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        // Registrar o Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./service-worker.js')
+                .then((registration) => {
+                    console.log('Service Worker registrado com sucesso:', registration);
+                })
+                .catch((error) => {
+                    console.log('Falha ao registrar o Service Worker:', error);
+                });
+        }
+    </script>
 </body>
 </html>
