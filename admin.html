@@ -126,7 +126,7 @@
         /* Listas de Itens */
         .month-item,
         .object-item,
-        .priority-item,
+        .link-item,
         .user-item {
             display: flex;
             justify-content: space-between;
@@ -138,7 +138,7 @@
 
         .month-item:last-child,
         .object-item:last-child,
-        .priority-item:last-child,
+        .link-item:last-child,
         .user-item:last-child {
             border-bottom: none;
         }
@@ -167,11 +167,6 @@
             background-color: #e0a800;
         }
 
-        /* Prioridade Ativa */
-        .priority-item.active {
-            background-color: #ffcccc; /* Vermelho claro para prioridade ativa */
-        }
-
         /* Responsividade */
         @media (max-width: 768px) {
             .tabs {
@@ -187,7 +182,7 @@
                 padding: 10px;
             }
 
-            .month-item, .object-item, .priority-item, .user-item {
+            .month-item, .object-item, .link-item, .user-item {
                 flex-direction: column;
                 align-items: flex-start;
             }
@@ -219,7 +214,7 @@
                 font-size: 14px;
             }
 
-            .month-item, .object-item, .priority-item, .user-item {
+            .month-item, .object-item, .link-item, .user-item {
                 font-size: 14px;
             }
         }
@@ -401,79 +396,70 @@
             }
         }
 
-        // Função para adicionar um pedido de prioridade
-        async function addPriority() {
-            const processNumber = document.getElementById('processNumber').value.trim();
-            const requestDate = document.getElementById('requestDate').value.trim();
-            const receiptDate = document.getElementById('receiptDate').value.trim();
-            const responsible = document.getElementById('responsible').value.trim();
-            const additionalInfo = document.getElementById('additionalInfo').value.trim();
+        // Função para adicionar um link
+        async function addLink() {
+            const title = document.getElementById('linkTitle').value.trim();
+            const description = document.getElementById('linkDescription').value.trim();
+            const url = document.getElementById('linkUrl').value.trim();
 
-            if (!processNumber || !requestDate || !receiptDate || !responsible) {
-                alert('Por favor, preencha todos os campos obrigatórios.');
+            if (!title || !description || !url) {
+                alert('Por favor, preencha todos os campos.');
                 return;
             }
 
             try {
-                await addDoc(collection(db, "priorities"), {
-                    processNumber,
-                    requestDate,
-                    receiptDate,
-                    responsible,
-                    additionalInfo,
-                    active: false
+                await addDoc(collection(db, "documents"), {
+                    title,
+                    description,
+                    url
                 });
-                alert('Pedido de prioridade adicionado com sucesso!');
-                renderPriorities();
+                alert('Link adicionado com sucesso!');
+                renderLinks();
             } catch (error) {
-                console.error('Erro ao adicionar pedido de prioridade: ', error);
-                alert('Erro ao adicionar pedido de prioridade.');
+                console.error('Erro ao adicionar link: ', error);
+                alert('Erro ao adicionar link.');
             }
         }
 
-        // Função para renderizar os pedidos de prioridade
-        async function renderPriorities() {
-            const priorityList = document.getElementById('priority-list');
-            priorityList.innerHTML = '';
+        // Função para renderizar os links
+        async function renderLinks() {
+            const linksList = document.getElementById('links-list');
+            linksList.innerHTML = '';
 
-            const querySnapshot = await getDocs(collection(db, "priorities"));
+            const querySnapshot = await getDocs(collection(db, "documents"));
             querySnapshot.forEach((doc) => {
-                const priority = doc.data();
-                const priorityDiv = document.createElement('div');
-                priorityDiv.className = `priority-item ${priority.active ? 'active' : ''}`;
-                priorityDiv.innerHTML = `
-                    <span>Nº Processo: ${priority.processNumber}</span>
-                    <span>Data do Pedido: ${formatDate(priority.requestDate)}</span>
-                    <span>Data de Recebimento: ${formatDate(priority.receiptDate)}</span>
-                    <span>Responsável: ${priority.responsible}</span>
-                    <span>Informação Adicional: ${priority.additionalInfo}</span>
-                    <button class="toggle-button" onclick="togglePriority('${doc.id}', ${!priority.active})">
-                        ${priority.active ? 'Desativar Prioridade' : 'Ativar Prioridade'} (${priority.processNumber})
-                    </button>
-                    <button class="delete-button" onclick="deletePriority('${doc.id}')">Excluir</button>
+                const link = doc.data();
+                const linkDiv = document.createElement('div');
+                linkDiv.className = 'link-item';
+                linkDiv.innerHTML = `
+                    <input type="text" value="${link.title}" onchange="updateLink('${doc.id}', 'title', this.value)">
+                    <input type="text" value="${link.description}" onchange="updateLink('${doc.id}', 'description', this.value)">
+                    <input type="text" value="${link.url}" onchange="updateLink('${doc.id}', 'url', this.value)">
+                    <button onclick="saveLink('${doc.id}')">Salvar Edição</button>
+                    <button class="delete-button" onclick="deleteLink('${doc.id}')">Excluir</button>
                 `;
-                priorityList.appendChild(priorityDiv);
+                linksList.appendChild(linkDiv);
             });
         }
 
-        // Função para alternar o estado de uma prioridade
-        async function togglePriority(docId, active) {
+        // Função para atualizar um link
+        async function updateLink(docId, field, value) {
             try {
-                await updateDoc(doc(db, "priorities", docId), { active });
-                renderPriorities();
+                await updateDoc(doc(db, "documents", docId), { [field]: value });
+                console.log('Link atualizado com sucesso!');
             } catch (error) {
-                console.error('Erro ao alternar prioridade: ', error);
+                console.error('Erro ao atualizar link: ', error);
             }
         }
 
-        // Função para excluir um pedido de prioridade
-        async function deletePriority(docId) {
+        // Função para excluir um link
+        async function deleteLink(docId) {
             try {
-                await deleteDoc(doc(db, "priorities", docId));
-                alert('Pedido de prioridade excluído com sucesso!');
-                renderPriorities();
+                await deleteDoc(doc(db, "documents", docId));
+                alert('Link excluído com sucesso!');
+                renderLinks();
             } catch (error) {
-                console.error('Erro ao excluir pedido de prioridade: ', error);
+                console.error('Erro ao excluir link: ', error);
             }
         }
 
@@ -528,15 +514,6 @@
             }
         }
 
-        // Função para formatar a data no formato dd/mm/aaaa
-        function formatDate(dateString) {
-            const date = new Date(dateString);
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const year = date.getFullYear();
-            return `${day}/${month}/${year}`;
-        }
-
         // Função para sair
         function logout() {
             localStorage.removeItem('loggedInUser');
@@ -551,9 +528,9 @@
         window.addObject = addObject;
         window.updateObject = updateObject;
         window.deleteObject = deleteObject;
-        window.addPriority = addPriority;
-        window.togglePriority = togglePriority;
-        window.deletePriority = deletePriority;
+        window.addLink = addLink;
+        window.updateLink = updateLink;
+        window.deleteLink = deleteLink;
         window.renderUsers = renderUsers;
         window.addUser = addUser;
         window.deleteUser = deleteUser;
@@ -562,7 +539,7 @@
         // Renderizar dados ao carregar a página
         renderMonths();
         renderObjects();
-        renderPriorities();
+        renderLinks();
         renderUsers();
     </script>
 </head>
@@ -575,7 +552,7 @@
         <div class="tabs">
             <div class="tab active" onclick="showTab('quantitative')">Quantitativo de Processos</div>
             <div class="tab" onclick="showTab('objects')">Objetos e Quantidades</div>
-            <div class="tab" onclick="showTab('priority')">Pedidos de Prioridades</div>
+            <div class="tab" onclick="showTab('links')">Links Úteis</div>
             <div class="tab" onclick="showTab('users')">Usuários Cadastrados</div>
         </div>
     </header>
@@ -606,23 +583,16 @@
         <div id="objects-list"></div>
     </div>
 
-    <!-- Aba de Pedidos de Prioridades -->
-    <div class="content" id="priority">
-        <h2>Pedidos de Prioridades</h2>
+    <!-- Aba de Links Úteis -->
+    <div class="content" id="links">
+        <h2>Links Úteis</h2>
         <div class="add-form">
-            <label for="processNumber">Número do Processo:</label>
-            <input type="text" id="processNumber" placeholder="Número do Processo">
-            <label for="requestDate">Data do Pedido:</label>
-            <input type="date" id="requestDate">
-            <label for="receiptDate">Data de Recebimento do Processo pela SECAJ:</label>
-            <input type="date" id="receiptDate">
-            <label for="responsible">Responsável pelo Processo:</label>
-            <input type="text" id="responsible" placeholder="Responsável pelo Processo">
-            <label for="additionalInfo">Informação Adicional:</label>
-            <input type="text" id="additionalInfo" placeholder="Informação Adicional">
-            <button onclick="addPriority()">Salvar Pedido</button>
+            <input type="text" id="linkTitle" placeholder="Título do Link">
+            <input type="text" id="linkDescription" placeholder="Descrição do Link">
+            <input type="text" id="linkUrl" placeholder="URL do Link">
+            <button onclick="addLink()">Adicionar Link</button>
         </div>
-        <div id="priority-list"></div>
+        <div id="links-list"></div>
     </div>
 
     <!-- Aba de Usuários Cadastrados -->
